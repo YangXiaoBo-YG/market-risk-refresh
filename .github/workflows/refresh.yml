@@ -1,0 +1,29 @@
+name: Refresh market data
+on:
+  schedule:
+    - cron: '17 */2 * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: market-refresh
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Refresh and verify private dashboard
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          SITE_TOKEN: ${{ secrets.SITE_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --retry 2 --retry-delay 10 --max-time 75 \
+            -X POST -H "OAI-Sites-Authorization: Bearer $SITE_TOKEN" \
+            -H "X-Market-Updater: github-actions" "$SITE_URL/api/market" -o result.json
+          jq -e '.checkedAt and .series.IXG.points[-1] and .series.MOVE.points[-1] and .series.H100.points[-1]' result.json >/dev/null
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            -H "OAI-Sites-Authorization: Bearer $SITE_TOKEN" "$SITE_URL/api/market" -o readback.json
+          test "$(jq -r .checkedAt result.json)" = "$(jq -r .checkedAt readback.json)"
+          jq '{checkedAt,errors,latest: (.series | with_entries(.value = {date:.value.points[-1].date,error:.value.error}))}' readback.json
+          if [ "$(jq '.errors | length' readback.json)" -gt 0 ]; then exit 1; fi
