@@ -18,6 +18,8 @@ jobs:
         with:
           node-version: 22
       - name: Collect SEC disclosures on the cloud runner
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
         run: node scripts/collect-csp.mjs
       - name: Refresh and verify private dashboard
         env:
