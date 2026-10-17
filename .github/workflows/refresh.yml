@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Verify GPU price parsing and history retention
+        run: node scripts/check-gpu-quotes.mjs
       - name: Collect official disclosures and market data
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {collectGpuQuotes} from '../web/lib/gpu-quotes.mjs';
 import {collect} from '../web/lib/collect.mjs';
 import {collectCsp} from '../web/lib/csp.mjs';
 const path='web/public/data/market.json';
@@ -10,6 +11,8 @@ globalThis.fetch=(url,options={})=>nativeFetch(url,{...options,headers:{...optio
 const csp=await collectCsp(previous.csp);
 const next=await collect(previous,csp);
 if(!next.series.IXG?.points.length||!next.series.MOVE?.points.length)throw new Error('Required history missing; previous file preserved');
+next.gpuQuotes=await collectGpuQuotes(previous.gpuQuotes);
+for(const source of next.gpuQuotes.sources)if(source.error)next.errors.push('GPU 挂牌价 '+source.provider+': '+source.error);
 next.cloudUpdatedAt=new Date().toISOString();
 next.updates=[...(previous.updates||[]),{at:next.checkedAt,errors:next.errors}].slice(-30);
 fs.writeFileSync(path,JSON.stringify(next,null,2)+'\n');

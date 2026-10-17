@@ -93,3 +93,16 @@ SEC 请求身份通过仓库 Secret `SEC_USER_AGENT` 配置，不写入前端、
 ## 相关个人项目
 
 [Anatomy Video 技术视频工作流](https://github.com/YangXiaoBo-YG/anatomy-video) · [PhDHunter 博士求职平台](https://github.com/YangXiaoBo-YG/phdhunter-showcase)
+
+
+## GPU 单卡租金与 Rubin 跟踪
+
+AI 算力区包含「市场指数」「厂商挂牌价」「Rubin 供应进展」三个视图。
+
+- 市场指数：Silicon Data 的 H100／H200／B200，可多线叠加；单位已是美元／GPU·小时。
+- 挂牌价：自动读取 CoreWeave 与 Nebius 官方页面；保留原始价格、实例 GPU 数、地区、按需／Spot、起价标记和观察日期。CoreWeave 整实例价按实际卡数折算，Nebius GPU-hour 原价直接使用。
+- 多代比较：H100、H200、B200、B300、GB200、GB300；询价保持空值。提供当前报价柱图及最多六条历史折线，首次采集前不补造挂牌价历史。
+- Rubin：覆盖 CoreWeave、Nebius、Google Cloud、Azure、AWS 的官方进展资料，人工核验日为 2026-10-17。没有已核验数字报价，不生成价格线。只有前两家价格页接入自动检查；部署公告不等于普遍可租用。
+- 挂牌价不等于市场成交价；单卡租金不等于同一任务的性能成本。不同附带资源、地区及计费条款不能忽略。
+
+采集实现：`web/lib/gpu-quotes.mjs`；关键单位、解析漂移和失败保留检查：`node scripts/check-gpu-quotes.mjs`。每天 UTC 保留最后一次成功报价，抓取失败保留历史并显示错误。
