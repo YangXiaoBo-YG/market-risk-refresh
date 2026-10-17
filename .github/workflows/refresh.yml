@@ -1,38 +1,51 @@
-name: Refresh market data
+name: Update and publish market dashboard
 on:
   schedule:
     - cron: '17 */2 * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
 permissions:
-  contents: read
+  contents: write
+  pages: write
+  id-token: write
 concurrency:
-  group: market-refresh
+  group: market-public-pages
   cancel-in-progress: false
 jobs:
-  refresh:
+  publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Collect SEC disclosures on the cloud runner
+      - name: Collect official disclosures and market data
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
-        run: node scripts/collect-csp.mjs
-      - name: Refresh and verify private dashboard
-        env:
-          SITE_URL: ${{ vars.SITE_URL }}
-          SITE_TOKEN: ${{ secrets.SITE_TOKEN }}
+        run: node scripts/refresh-public.mjs
+      - name: Preserve accumulated history
         run: |
-          set -euo pipefail
-          curl --fail-with-body --silent --show-error --retry 2 --retry-delay 10 --max-time 75 \
-            -X POST -H "Content-Type: application/json" --data-binary @csp-upload.json -H "OAI-Sites-Authorization: Bearer $SITE_TOKEN" \
-            -H "X-Market-Updater: github-actions" "$SITE_URL/api/market" -o result.json
-          jq -e '.checkedAt and .series.IXG.points[-1] and .series.MOVE.points[-1] and .series.H100.points[-1]' result.json >/dev/null
-          curl --fail-with-body --silent --show-error --max-time 30 \
-            -H "OAI-Sites-Authorization: Bearer $SITE_TOKEN" "$SITE_URL/api/market" -o readback.json
-          test "$(jq -r .checkedAt result.json)" = "$(jq -r .checkedAt readback.json)"
-          jq '{checkedAt,errors,csp: (.csp.companies | map({id,lastSuccess,error,filingsError})),latest: (.series | with_entries(.value = {date:.value.points[-1].date,error:.value.error}))}' readback.json
-          if [ "$(jq '.errors | length' readback.json)" -gt 0 ]; then exit 1; fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add web/public/data/market.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update market history [skip ci]"
+            git push
+          fi
+      - name: Build dashboard
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+      - name: Deploy standalone public website
+        id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import {collect} from '../web/lib/collect.mjs';
+import {collectCsp} from '../web/lib/csp.mjs';
+const path='web/public/data/market.json';
+const previous=JSON.parse(fs.readFileSync(path,'utf8'));
+const agent=process.env.SEC_USER_AGENT;
+if(!agent)throw new Error('SEC identity secret missing');
+const nativeFetch=globalThis.fetch;
+globalThis.fetch=(url,options={})=>nativeFetch(url,{...options,headers:{...options.headers,...(String(url).startsWith('https://data.sec.gov/')?{'User-Agent':agent}:{})}});
+const csp=await collectCsp(previous.csp);
+const next=await collect(previous,csp);
+if(!next.series.IXG?.points.length||!next.series.MOVE?.points.length)throw new Error('Required history missing; previous file preserved');
+next.cloudUpdatedAt=new Date().toISOString();
+next.updates=[...(previous.updates||[]),{at:next.checkedAt,errors:next.errors}].slice(-30);
+fs.writeFileSync(path,JSON.stringify(next,null,2)+'\n');
+console.log(JSON.stringify({checkedAt:next.checkedAt,errors:next.errors,series:Object.keys(next.series).length}));
+if(next.errors.length)console.log('::warning::Some sources failed; their previous valid history is preserved. See the data sources tab.');

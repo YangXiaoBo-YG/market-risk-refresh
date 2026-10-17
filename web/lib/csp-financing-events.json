@@ -1,0 +1,57 @@
+[
+  {
+    "company": "AMZN",
+    "date": "2026-07-07",
+    "currency": "USD",
+    "maturity": "2036",
+    "coupon": 5.3,
+    "yield": 5.341,
+    "spread": 80,
+    "note": "约10年期固定利率票据；发行定价日",
+    "url": "https://www.sec.gov/Archives/edgar/data/1018724/000110465926081334/tm2619352d3_fwp.htm"
+  },
+  {
+    "company": "GOOGL",
+    "date": "2026-02-09",
+    "currency": "USD",
+    "maturity": "2036-02-15",
+    "coupon": 4.8,
+    "yield": 4.826,
+    "spread": 63,
+    "note": "约10年期高级无担保票据；发行定价日",
+    "url": "https://www.sec.gov/Archives/edgar/data/1652044/000119312526043127/d297481dfwp.htm"
+  },
+  {
+    "company": "ORCL",
+    "date": "2026-02-02",
+    "currency": "USD",
+    "maturity": "2036-02-04",
+    "coupon": 5.7,
+    "yield": 5.729,
+    "spread": 145,
+    "note": "约10年期固定利率票据；发行定价日",
+    "url": "https://www.sec.gov/Archives/edgar/data/1341439/000119312526033882/d44245dfwp.htm"
+  },
+  {
+    "company": "CRWV",
+    "date": "2026-06-18",
+    "currency": "USD",
+    "maturity": "2032",
+    "coupon": 9.625,
+    "yield": null,
+    "spread": null,
+    "note": "高级票据；发行完成日；未将票息当作到期收益率",
+    "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000291/crwv-20260618.htm"
+  },
+  {
+    "company": "CRWV",
+    "date": "2026-09-22",
+    "currency": "USD",
+    "maturity": "2033-04-01",
+    "coupon": 2.875,
+    "spread": null,
+    "note": "可转债；42 亿美元发行完成（含 5 亿美元增发）；转股权另有价值，票息不可与普通债直接比较",
+    "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000432/crwv-20260917.htm",
+    "yield": null
+  }
+]
