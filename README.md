@@ -6,6 +6,10 @@
 
 **[打开在线观察站](https://YangXiaoBo-YG.github.io/market-risk-refresh/) · [查看更新记录](https://github.com/YangXiaoBo-YG/market-risk-refresh/actions/workflows/refresh.yml) · [数据采集实现](web/lib/collect.mjs)**
 
+![市场风险观察站真实页面截图](docs/images/dashboard.png)
+
+截图来自公开在线页面，数值为截图时点快照；最新数据请打开在线观察站。
+
 ## 用来做什么
 
 - 把市场波动、利率与权益市场结构放在一起对照，而不是分散打开多个数据网站。
