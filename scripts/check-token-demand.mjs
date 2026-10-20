@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {buildTokenDemand,mergeDemandHistory,collectTokenDemand} from '../web/lib/token-demand.mjs';
+import {writeSpotArchive} from './archive-nebius-spot.mjs';
+import {mergeSpotSeries} from '../web/lib/nebius-spot.mjs';
+const at='2026-10-20T05:00:00.000Z';
+const m=(id,canonical_slug,input,output)=>({id,canonical_slug,architecture:{input_modalities:['text'],output_modalities:['text']},pricing:{prompt:input,completion:output}});
+const u=(id,input,output)=>({date:'2026-10-19 00:00:00',variant_permaslug:id,total_prompt_tokens:input,total_completion_tokens:output});
+const models={data:[m('test/model','test/model-20261010','0.000001','0.000004'),m('test/model:free','test/model-20261010','0','0'),m('test/model:batch','test/model-20261010','0.0000005','0.000002')]};
+const usage={data:[u('test/model-20261010',2000000,500000),u('test/model-20261010:free',1000000,100000),u('test/model-20261010:batch',1000000,0),u('test/model-20250101',900000,0)]};
+const result=buildTokenDemand(usage,models,at),s=result.summary;
+assert.equal(s.estimatedSpend,4.5);assert.equal(s.matchedTokens,4600000);assert.equal(s.totalTokens,5500000);assert.equal(s.freeTokens,1100000);assert.equal(s.matchedModels,3);assert.equal(result.details.at(-1).nominalSpend,null);assert.equal(result.details[2].inputPrice,0.5);
+assert(Math.abs(s.weightedPrice*s.matchedTokens/1e6-s.estimatedSpend)<1e-10);
+const ambiguous=buildTokenDemand(usage,{data:[...models.data,m('test/alias','test/model-20261010','0.000002','0.000008')]},at);assert.equal(ambiguous.details[0].reason,'ambiguous-price');assert.equal(ambiguous.details[0].nominalSpend,null);
+assert.throws(()=>buildTokenDemand({data:[u('test/model-20261010',null,0)]},models,at));assert.throws(()=>buildTokenDemand({data:[u('test/model-20261010',true,0)]},models,at));assert.throws(()=>buildTokenDemand({data:[u('test/model-20261010',Number.MAX_SAFE_INTEGER+1,0)]},models,at));
+assert.throws(()=>buildTokenDemand({data:[{...usage.data[0],date:'2026-10-20'}]},models,at));assert.throws(()=>buildTokenDemand({data:[usage.data[0],usage.data[0]]},models,at));
+assert.equal(buildTokenDemand({data:[...usage.data,u('',0,0)]},models,at).summary.totalModels,4);assert.throws(()=>buildTokenDemand({data:[u('',1,0)]},models,at));
+const noMatch=buildTokenDemand({data:[u('old/version',10,1)]},models,at);assert.equal(noMatch.summary.estimatedSpend,null);assert.equal(noMatch.summary.coverage,0);
+const old={...s,date:'2021-01-01',checkedAt:'2021-01-02T00:00:00Z'};assert.equal(mergeDemandHistory([old,s],[{...s,checkedAt:'2026-10-20T01:00:00Z',estimatedSpend:999}]).at(-1).estimatedSpend,4.5);assert.equal(mergeDemandHistory([old],[s]).length,2);
+const ok=data=>({ok:true,json:async()=>data});const collected=await collectTokenDemand({history:[old]},async url=>ok(url.includes('/models?')?usage:models),at);assert.equal(collected.error,null);assert.equal(collected.history.length,2);
+const failed=await collectTokenDemand(collected,async()=>({ok:false,status:401}),at);assert(failed.error);assert.deepEqual(failed.history,collected.history);assert.deepEqual(failed.latest,collected.latest);
+const fiveYears=Array.from({length:6},(_,i)=>({timestamp:`${2026+i}-01-01T00:00:00.000Z`,value:1+i}));let series=[];for(const point of fiveYears)series=mergeSpotSeries(series,[{id:'sku-1:eu',skuId:'sku-1',gpu:'H200',region:'eu',platform:'gpu-h200',points:[point]}]);assert.equal(series[0].points.length,6);assert.equal(series[0].points[0].timestamp,fiveYears[0].timestamp);
+const directory='.runtime/archive-test-'+Date.now();const manifest=writeSpotArchive({series},directory);assert.equal(manifest.months.length,6);assert.equal(writeSpotArchive({series:[]},directory).months.length,6,'Empty or missing source must never erase archived years');
+writeSpotArchive({series:[{...series[0],points:[{timestamp:fiveYears[5].timestamp,value:99}]}]},directory);const stored=JSON.parse(fs.readFileSync(directory+'/2026-01.json','utf8'));assert.equal(stored.series[0].points[0].value,1);const latest=JSON.parse(fs.readFileSync(directory+'/2031-01.json','utf8'));assert.equal(latest.series[0].points[0].value,99);
+if(fs.existsSync('.runtime/public-token-day.json')&&fs.existsSync('.runtime/token-models.json')){const live=buildTokenDemand(JSON.parse(fs.readFileSync('.runtime/public-token-day.json','utf8')),JSON.parse(fs.readFileSync('.runtime/token-models.json','utf8')),at);assert(live.summary.coverage>0);console.log('Captured public daily sample:',JSON.stringify(live.summary));}
+console.log('Token demand and long-term retention checks passed: exact versions, input/output costing, free/batch separation, missing prices, coverage, failures, 5-year retention and durable month archives.');

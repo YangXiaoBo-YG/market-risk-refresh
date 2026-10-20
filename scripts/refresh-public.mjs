@@ -1,3 +1,5 @@
+import {collectTokenDemand} from '../web/lib/token-demand.mjs';
+import {writeSpotArchive} from './archive-nebius-spot.mjs';
 import {collectNebiusSpot} from '../web/lib/nebius-spot.mjs';
 import fs from 'node:fs';
 import {collectGpuQuotes} from '../web/lib/gpu-quotes.mjs';
@@ -16,8 +18,11 @@ next.gpuQuotes=await collectGpuQuotes(previous.gpuQuotes);
 for(const source of next.gpuQuotes.sources)if(source.error)next.errors.push('GPU 挂牌价 '+source.provider+': '+source.error);
 next.nebiusSpot=await collectNebiusSpot(previous.nebiusSpot);
 for(const error of [next.nebiusSpot.error,next.nebiusSpot.historyError])if(error)next.errors.push('Nebius Spot: '+error);
+next.tokenDemand=await collectTokenDemand(previous.tokenDemand);
+if(next.tokenDemand.error)next.errors.push('Token 量价: '+next.tokenDemand.error);
 next.cloudUpdatedAt=new Date().toISOString();
 next.updates=[...(previous.updates||[]),{at:next.checkedAt,errors:next.errors}].slice(-30);
 fs.writeFileSync(path,JSON.stringify(next,null,2)+'\n');
+writeSpotArchive(next.nebiusSpot);
 console.log(JSON.stringify({checkedAt:next.checkedAt,errors:next.errors,series:Object.keys(next.series).length}));
 if(next.errors.length)console.log('::warning::Some sources failed; their previous valid history is preserved. See the data sources tab.');

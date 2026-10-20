@@ -118,3 +118,22 @@ AI 算力 → GPU 租赁比较 →「Nebius 动态 Spot」接入 [官方价格�
 - 官方 Spot 平台价格不等于实际成交、容量承诺或跨厂商市场指数，也不与原价格页 from 起价混用；预留、按需与可抢占实例的条件不同。
 
 实现：`web/lib/nebius-spot.mjs`；检查：`node scripts/check-nebius-spot.mjs`。
+
+## 长期留存与免费 Token 量价观察
+
+Nebius 已采集小时数据不按 7 天、90 天或年数删除；官网近 7 天只是每次补取窗口。云端每两小时合并重叠点，另外按 UTC 月写入 `web/public/data/nebius-spot/YYYY-MM.json` 和 `index.json`，独立月文件保留窗口外数据。网页支持 2／3／4／5 年、全部及自定义区间，提供全部小时历史 CSV 导出；超过 5,000 点只对图表按日显示，原始小时点保留。
+
+长期连续数据依赖 GitHub 工作流和上游来源持续可用。当前没有首次采集前多年历史；若来源中断超过可回补窗口，无法保证补全缺口。已保存的数据不会因此被删。
+
+Token 量价模块使用公开排行榜页面自身调用的 `https://openrouter.ai/api/frontend/v1/rankings/models?view=day`，无需 Key。该前端接口不是承诺稳定的文档化 Datasets API，结构变化或访问失败时保留已有统计。输入／输出分项来自同一个完整 UTC 日，不使用假定的 3:1 比例。
+
+- 与公开 `/api/v1/models` 返回的日期化 canonical 版本及 free／batch 等变体精确匹配；不把旧版本替换成新模型，不把未知价格当零。
+- 每个匹配模型：`input_tokens × input_price_per_million / 1e6 + output_tokens × output_price_per_million / 1e6`，再加总为名义挂牌价折算支出。
+- 加权混合单价 = 匹配支出 ÷ 匹配 Token × 1e6；覆盖率 = 匹配 Token ÷ 源列表全部 Token。覆盖率与模型结构可能随日期变化。
+- 用量日和价格抓取时间分别存储。使用当次价格重估最新完整日，不用今天价格回填过去时间；从首次采集日起保存真实日度统计。
+- 不等于真实账单、厂商收入或 AI 全行业总需求：范围只有 OpenRouter 公开流量，包含免费流量；源列表也可能含非文本或下架模型，未匹配项不计支出。未调整缓存、企业折扣、长上下文档位、工具、多模态、充值和 BYOK。
+- 图表提供原始值分栏及固定基期 = 100 同图；日度统计 CSV 保留量、价、支出、覆盖率与日期。最新版本明细便于复核，历史快照可从 Git 提交记录追溯。
+
+Source: OpenRouter (https://openrouter.ai/rankings), as of each saved observation timestamp. Rankings data licensed under CC BY 4.0. 支出为本站计算，并非 OpenRouter 披露的实际收入。
+
+检查：`node scripts/check-token-demand.mjs`，涵盖分项计算、版本及变体、免费报价、未匹配覆盖率、失败留存、五年合并及月度归档保留。

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "source": "https://nebius.com/spot-prices",
+  "unit": "USD/GPU-hour",
+  "granularity": "hourly-last-price",
+  "months": [
+    {
+      "month": "2026-10",
+      "file": "2026-10.json",
+      "series": 12,
+      "observations": 2016,
+      "start": "2026-10-13T04:00:00.000Z",
+      "end": "2026-10-20T03:00:00.000Z"
+    }
+  ]
+}
