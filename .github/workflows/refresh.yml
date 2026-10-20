@@ -25,7 +25,9 @@ jobs:
         with:
           node-version: 22
       - name: Verify GPU price parsing and history retention
-        run: node scripts/check-gpu-quotes.mjs
+        run: |
+          node scripts/check-gpu-quotes.mjs
+          node scripts/check-nebius-spot.mjs
       - name: Collect official disclosures and market data
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}

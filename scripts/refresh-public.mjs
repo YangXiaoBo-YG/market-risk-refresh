@@ -1,3 +1,4 @@
+import {collectNebiusSpot} from '../web/lib/nebius-spot.mjs';
 import fs from 'node:fs';
 import {collectGpuQuotes} from '../web/lib/gpu-quotes.mjs';
 import {collect} from '../web/lib/collect.mjs';
@@ -13,6 +14,8 @@ const next=await collect(previous,csp);
 if(!next.series.IXG?.points.length||!next.series.MOVE?.points.length)throw new Error('Required history missing; previous file preserved');
 next.gpuQuotes=await collectGpuQuotes(previous.gpuQuotes);
 for(const source of next.gpuQuotes.sources)if(source.error)next.errors.push('GPU 挂牌价 '+source.provider+': '+source.error);
+next.nebiusSpot=await collectNebiusSpot(previous.nebiusSpot);
+for(const error of [next.nebiusSpot.error,next.nebiusSpot.historyError])if(error)next.errors.push('Nebius Spot: '+error);
 next.cloudUpdatedAt=new Date().toISOString();
 next.updates=[...(previous.updates||[]),{at:next.checkedAt,errors:next.errors}].slice(-30);
 fs.writeFileSync(path,JSON.stringify(next,null,2)+'\n');

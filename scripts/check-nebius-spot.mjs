@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {parseSpotCurrent,parseSpotSeries,mergeSpotSeries,collectNebiusSpot} from '../web/lib/nebius-spot.mjs';
+const meta={skuId:'sku-example1',productTitle:'Preemptible NVIDIA® H200 NVLink',region:'eu-north1',computeInstance:{platform:'gpu-h200-sxm'}};
+const snapshotTime='2026-10-20T02:00:00Z',at='2026-10-20T03:00:00Z';
+const current={snapshotTime,items:[{...meta,price:{value:'2.123',currency:'usd',unitTitle:'GPU hour'},effectiveTime:'2026-10-09T17:01:00Z'}]};
+const history={snapshotTime,items:[{...meta,currency:'usd',unitTitle:'GPU hour',points:[{timestamp:'2026-10-20T00:00:00Z',value:'1'},{timestamp:'2026-10-20T01:00:00Z',value:'2'}]}]};
+const row=parseSpotCurrent(current).items[0];assert.equal(row.gpu,'H200');assert.equal(row.value,2.123);assert.equal(row.region,'eu-north1');
+for(const replacement of [{currency:'eur'},{unitTitle:'Instance hour'},{value:null},{value:''},{value:'NaN'},{value:-2}])assert.throws(()=>parseSpotCurrent({...current,items:[{...current.items[0],price:{...current.items[0].price,...replacement}}]}));
+assert.throws(()=>parseSpotCurrent({...current,items:[]}));assert.throws(()=>parseSpotCurrent({...current,items:[...current.items,...current.items]}));
+assert.throws(()=>parseSpotSeries({...history,items:[{...history.items[0],unitTitle:'Instance hour'}]}));
+assert.throws(()=>parseSpotSeries({...history,items:[{...history.items[0],points:[{timestamp:'2026-10-20T01:15:00Z',value:'2'}]}]}));
+const incoming=parseSpotSeries(history).series;
+const previous=[{...incoming[0],points:[{timestamp:'2026-09-01T00:00:00.000Z',value:9},{timestamp:'2026-10-20T01:00:00.000Z',value:7}]}];
+const merged=mergeSpotSeries(previous,incoming);assert.equal(merged[0].points.length,3);assert.equal(merged[0].points[0].value,9);assert.equal(merged[0].points.at(-1).value,2);assert.equal(previous[0].points.at(-1).value,7);assert.deepEqual(mergeSpotSeries(merged,incoming),merged);
+const ok=data=>({ok:true,json:async()=>data});let calls=0;
+const result=await collectNebiusSpot({series:previous,current:[]},async url=>{calls++;const u=new URL(url);if(url.includes('list-series')){assert.equal(u.searchParams.get('aggregation.method'),'METHOD_LAST_PRICE');assert.equal(u.searchParams.get('aggregation.granularity'),'GRANULARITY_HOUR_1');assert.deepEqual(u.searchParams.getAll('filters.skuIds'),['sku-example1']);return ok(history);}return ok(current);},at);
+assert.equal(calls,2);assert.equal(result.error,null);assert.equal(result.historyError,null);assert.equal(result.series[0].points.length,3);assert.equal(result.current[0].effectiveTime,'2026-10-09T17:01:00.000Z');assert(!result.series[0].points.some(p=>p.timestamp.startsWith('2026-10-09')),'Do not convert current effective time into invented historical samples');
+const failed=await collectNebiusSpot(result,async()=>({ok:false,status:503}),at);assert.deepEqual(failed.current,result.current);assert.deepEqual(failed.series,result.series);assert(failed.error);assert.equal(failed.lastSuccess,result.lastSuccess);
+const partial=await collectNebiusSpot(result,async url=>url.includes('list-series')?{ok:false,status:503}:ok(current),at);assert.equal(partial.error,null);assert(partial.historyError);assert.deepEqual(partial.series,result.series);assert.equal(partial.historyLastSuccess,result.historyLastSuccess);
+const older=await collectNebiusSpot(result,async()=>ok({...current,snapshotTime:'2026-10-19T00:00:00Z'}),at);assert(older.error.includes('regressed'));assert.deepEqual(older.current,result.current);
+const paged=await collectNebiusSpot(undefined,async url=>{const u=new URL(url);if(url.includes('list-series'))return ok(history);if(!u.searchParams.has('pageToken'))return ok({...current,nextPageToken:'page2',items:[]});return ok(current);},at);assert.equal(paged.current.length,1);assert.equal(paged.error,null);
+const corrupt=await collectNebiusSpot(result,async url=>ok(url.includes('list-series')?{...history,items:[{...history.items[0],currency:'eur'}]}:current),at);assert(corrupt.historyError);assert.deepEqual(corrupt.series,result.series);
+for(const [file,parse] of [['spot-current.json',parseSpotCurrent],['spot-series.json',parseSpotSeries]])if(fs.existsSync('.runtime/'+file)){const data=parse(JSON.parse(fs.readFileSync('.runtime/'+file,'utf8')));console.log('Captured official API validated:',file,(data.items||data.series).length);}
+console.log('Nebius Spot checks passed: units, regions, source timestamps, hourly samples, overlapping corrections, long-term retention, pagination, partial failures, no fabricated history.');

@@ -1,3 +1,5 @@
+export type NebiusSpotItem={id:string;skuId:string;gpu:string;region:string;platform:string;value:number;effectiveTime:string};
+export type NebiusSpot={checkedAt:string;source:string;unit:string;granularity:string;current:NebiusSpotItem[];series:{id:string;skuId:string;gpu:string;region:string;platform:string;points:{timestamp:string;value:number}[]}[];snapshotTime?:string;historySnapshotTime?:string;lastSuccess?:string;historyLastSuccess?:string;error:string|null;historyError:string|null};
 export type GpuOffer={id:string;provider:string;gpu:string;region:string;billing:string;currency:string;unit:string;rawPrice:number|null;gpuCount:number|null;perGpu:number|null;lowerBound:boolean;status:string;source:string;vcpus:string;ramGb:string;note:string;observedAt:string};
 export type GpuQuotes={checkedAt:string;offers:GpuOffer[];history:{date:string;offerId:string;value:number|null;observedAt:string;lowerBound:boolean}[];sources:{provider:string;url:string;checkedAt:string;lastSuccess?:string;error:string|null;rubinListed?:boolean}[]};
 export type Point={date:string;value:number;adjusted?:number};
@@ -7,7 +9,7 @@ export type Revenue={checkedAt:string;lastSuccess:string;error:string|null;point
 export type TokenPrices={models:{id:string;name:string;url:string;hasTiers:boolean}[];history:{date:string;checkedAt:string;prices:Record<string,{input:number;output:number}>}[];basket?:{ids:string[];baseDate:string;basePrices:Record<string,number>};checkedAt:string;lastSuccess?:string;error?:string|null};
 export type CspPoint={date:string;start:string;filed:string;period:string;expense:number;revenue:number|null;burden:number|null;tag:string;url:string};
 export type CspData={checkedAt:string;companies:{id:string;name:string;cik:string;points:CspPoint[];checkedAt:string;lastSuccess?:string;error?:string|null;filings?:{date:string;form:string;url:string}[];filingsCheckedAt?:string;filingsError?:string|null}[];sofr:{points:Point[];checkedAt:string;lastSuccess?:string;error?:string|null}};
-export type Snapshot={gpuQuotes?:GpuQuotes;csp?:CspData;tokenPrices?:TokenPrices;updates?:{at:string;errors:string[]}[];revenue?:Revenue;cloudUpdatedAt?:string;checkedAt:string;series:Record<string,Series>;errors:string[]};
+export type Snapshot={nebiusSpot?:NebiusSpot;gpuQuotes?:GpuQuotes;csp?:CspData;tokenPrices?:TokenPrices;updates?:{at:string;errors:string[]}[];revenue?:Revenue;cloudUpdatedAt?:string;checkedAt:string;series:Record<string,Series>;errors:string[]};
 export const last=(s?:Series)=>s?.points.at(-1);
 export function change(s?:Series,n=1){const p=s?.points||[];return p.length>n?(p.at(-1)!.value/p.at(-1-n)!.value-1)*100:null;}
 export function drawdown(s?:Series){const p=(s?.points||[]).slice(-20);if(p.length<20||p.some(x=>x.adjusted==null))return null;return (p.at(-1)!.adjusted!/Math.max(...p.map(x=>x.adjusted!))-1)*100;}

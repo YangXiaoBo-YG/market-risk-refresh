@@ -1,4 +1,5 @@
- 'use client';
+'use client';
+import NebiusSpotPanel from './nebius-spot';
 import {useState,useMemo} from 'react';
 import {Bar,BarChart,CartesianGrid,ComposedChart,Line,ResponsiveContainer,Tooltip,XAxis,YAxis,Legend} from 'recharts';
 import type {Snapshot,GpuQuotes,GpuOffer} from '../lib/analytics';
@@ -43,5 +44,5 @@ function QuotesView({quotes}:{quotes:GpuQuotes}){
 function RubinView({quotes}:{quotes:GpuQuotes}){return <article className="panel"><h3>Rubin · 供应进展与报价状态</h3><p className="notice">已宣布部署、硬件交付、有限开放和普遍可租用是不同状态。当前没有已核验的 Rubin 数字报价，不能推算或用其他 GPU 价格代替。</p><div className="table-wrap"><table><thead><tr><th>厂商</th><th>已核实进展</th><th>报价跟踪</th></tr></thead><tbody>{rubin.providers.map(p=>{const source=quotes.sources.find(s=>s.provider===p.pricingProvider);return <tr key={p.name}><td>{p.name}</td><td>{p.status}<small><a href={p.url} target="_blank" rel="noreferrer">官方进展来源 ↗</a></small></td><td>{!p.pricingProvider?'未接入该厂商价格页；未找到已核验公开报价':source?.error?'价格页检查失败；报价状态未知':!source?'等待首次检查':source.rubinListed?'价格页出现 Rubin 字样，待人工核验规格及数值':'最近读取的公开价格页未列 Rubin'}<small>{source?.checkedAt?source.checkedAt.slice(0,19)+' UTC':''}</small></td></tr>})}</tbody></table></div><p className="fine">供应进展人工核验于 {rubin.reviewedAt}，不随价格页成功读取而自动更新。CoreWeave 与 Nebius 价格页每两小时检查；其他厂商尚未接入自动价格检查。Rubin NVL72 是整机架系统，不能默认以 72 作为任何出租实例的分母；未来报价必须先核实实际计费规格。</p></article>}
 export default function GpuPanel({data}:{data:Snapshot}){
  const [view,setView]=useState('index');const quotes:GpuQuotes=data.gpuQuotes||fallback;
- return <section id="gpu"><div className="section-title"><h2>GPU 租赁比较 · Hopper → Blackwell → Rubin</h2><span className="badge">美元／GPU·小时</span></div><div className="compare-toolbar">{[['index','市场指数'],['quotes','厂商挂牌价'],['rubin','Rubin 供应进展']].map(([id,label])=><button key={id} className={view===id?'selected':''} onClick={()=>setView(id)}>{label}</button>)}</div><div style={{marginTop:16}}>{view==='index'?<IndexView data={data}/>:view==='quotes'?<QuotesView quotes={quotes}/>:<RubinView quotes={quotes}/>}</div></section>;
+ return <section id="gpu"><div className="section-title"><h2>GPU 租赁比较 · Hopper → Blackwell → Rubin</h2><span className="badge">美元／GPU·小时</span></div><div className="compare-toolbar">{[['index','市场指数'],['quotes','厂商挂牌价'],['spot','Nebius 动态 Spot'],['rubin','Rubin 供应进展']].map(([id,label])=><button key={id} className={view===id?'selected':''} onClick={()=>setView(id)}>{label}</button>)}</div><div style={{marginTop:16}}>{view==='index'?<IndexView data={data}/>:view==='quotes'?<QuotesView quotes={quotes}/>:view==='spot'?<NebiusSpotPanel data={data.nebiusSpot}/>:<RubinView quotes={quotes}/>}</div></section>;
 }

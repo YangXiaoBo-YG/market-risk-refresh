@@ -106,3 +106,15 @@ AI 算力区包含「市场指数」「厂商挂牌价」「Rubin 供应进展�
 - 挂牌价不等于市场成交价；单卡租金不等于同一任务的性能成本。不同附带资源、地区及计费条款不能忽略。
 
 采集实现：`web/lib/gpu-quotes.mjs`；关键单位、解析漂移和失败保留检查：`node scripts/check-gpu-quotes.mjs`。每天 UTC 保留最后一次成功报价，抓取失败保留历史并显示错误。
+
+## Nebius 动态 Spot 价格
+
+AI 算力 → GPU 租赁比较 →「Nebius 动态 Spot」接入 [官方价格页](https://nebius.com/spot-prices) 使用的公开 API，不需要模型密钥。按 GPU、地区查看当前美元／GPU·小时报价、官方快照时间及报价生效时间；最多六条历史折线，可调日期范围及小时／每日最后观测。
+
+- 当前接口：`https://api.nebius.cloud/billing/v1alpha1/spot-price`。
+- 历史接口：同路径 `/list-series`，沿用官网 7 日视图的 `GRANULARITY_HOUR_1` + `METHOD_LAST_PRICE`。每点是小时采样，非均价或该小时内全部变动。
+- 每两小时云端重读近七天，按 SKU＋地区＋UTC 时间合并、覆盖修订点并永久保留窗口以外的已存历史；不以旧报价生效时间伪造历史点，不前向填充空缺。
+- 长区间单条超过 5,000 点时图表按日展示，原始小时数据仍保存。接口失败保留上次有效值及历史，分别标明当前／历史读取错误。
+- 官方 Spot 平台价格不等于实际成交、容量承诺或跨厂商市场指数，也不与原价格页 from 起价混用；预留、按需与可抢占实例的条件不同。
+
+实现：`web/lib/nebius-spot.mjs`；检查：`node scripts/check-nebius-spot.mjs`。
