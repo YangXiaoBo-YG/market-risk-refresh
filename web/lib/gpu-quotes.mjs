@@ -47,9 +47,26 @@ export function parseNebius(html){
  const tree=dom(html),offers=[];
  for(const table of all(tree,n=>has(n,'pc-highlight-table-block__content'))){
   const rows=all(table,n=>has(n,'pc-highlight-table-block__row'));if(!rows.length)continue;
-  const headers=text(rows[0]);if(!headers.includes('GPU-hour'))continue;
-  const billing=headers.includes('Spot')?'spot':'on-demand';
-  for(const row of rows.slice(1)){const cells=row.children.filter(n=>has(n,'pc-highlight-table-block__cell'));if(cells.length!==4)throw Error('Nebius GPU columns changed');const gpu=model(text(cells[0]));if(!gpu)continue;const raw=text(cells[3]);const lowerBound=/^from\s+/i.test(raw);const value=raw.replace(/^from\s+/i,'');if(!/^\$|contact/i.test(value))throw Error('Unknown Nebius price format');offers.push(normalizeQuote({provider:'Nebius',gpu,region:'Not specified',billing,rawPrice:money(value),gpuCount:null,unit:'gpu-hour',lowerBound,vcpus:text(cells[1]),ramGb:text(cells[2]),note:'官网直接按 GPU-hour 公布；地区未在该表指定。Spot 的 from 是起价，不是保证可成交价格。'}));}
+  const cellsOf=row=>row.children.filter(n=>has(n,'pc-highlight-table-block__cell'));
+  const headers=cellsOf(rows[0]).map(text);
+  const columns=headers.flatMap((header,index)=>{
+   if(!/GPU-hour/i.test(header))return [];
+   const billing=/Spot|Preemptible/i.test(header)?'spot':/On-demand/i.test(header)||header.trim()==='GPU-hour'?'on-demand':null;
+   if(!billing)throw Error('Unknown Nebius GPU billing header');
+   return [{index,billing}];
+  });
+  if(!columns.length)continue;
+  if(new Set(columns.map(c=>c.billing)).size!==columns.length)throw Error('Duplicate Nebius billing columns');
+  for(const row of rows.slice(1)){
+   const cells=cellsOf(row);if(cells.length!==headers.length)throw Error('Nebius GPU columns changed');
+   const gpu=model(text(cells[0]));if(!gpu)continue;
+   for(const {index,billing} of columns){
+    const raw=text(cells[index]),lowerBound=/^from\s+/i.test(raw),value=raw.replace(/^from\s+/i,'');
+    const unavailable=/^[-–—]$|^N\/A$/i.test(value);
+    if(!unavailable&&!/^\$|contact/i.test(value))throw Error('Unknown Nebius price format');
+    offers.push(normalizeQuote({provider:'Nebius',gpu,region:'Not specified',billing,rawPrice:money(value),gpuCount:null,unit:'gpu-hour',lowerBound,status:unavailable?'not-offered':money(value)==null?'contact-sales':'priced',vcpus:text(cells[1]),ramGb:text(cells[2]),note:'官网直接按 GPU-hour 公布；地区未在该表指定。Spot 的 from 是起价，不是保证可成交价格。'}));
+   }
+  }
  }
  for(const gpu of ['H100','H200','B200','B300'])if(!offers.some(o=>o.gpu===gpu&&o.billing==='on-demand'))throw Error('Nebius model coverage changed: '+gpu);
  return offers;

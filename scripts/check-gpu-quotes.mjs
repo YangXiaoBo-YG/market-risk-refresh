@@ -27,3 +27,15 @@ assert.deepEqual(failed.offers,initial.offers);assert.deepEqual(failed.history,h
 const success=await collectGpuQuotes(initial,async url=>({ok:true,text:async()=>url.includes('coreweave')?cw:ne}));assert(success.offers.some(o=>o.provider==='Nebius'));assert(success.sources.every(s=>!s.error));
 for(const [name,parse] of [['coreweave',parseCoreWeave],['nebius',parseNebius]])if(fs.existsSync('.runtime/'+name+'.html')){const live=parse(fs.readFileSync('.runtime/'+name+'.html','utf8'));assert(live.length>0);console.log('Captured official page parsed:',name,live.length);}
 console.log('GPU pricing checks passed: unit conversion, instance counts, separate billing, no inference-price mixup, null quotes, from flags, daily history and failure retention.');
+
+const combinedRow=values=>'<div class="pc-highlight-table-block__row">'+values.map(v=>'<div class="pc-highlight-table-block__cell">'+v+'</div>').join('')+'</div>';
+const combined='<div class="pc-highlight-table-block__content">'+combinedRow(['Item','vCPUs','RAM, GB','Preemptible, GPU-hour *','On-demand, GPU-hour'])+['H100','H200','B200','B300','GB200'].map(g=>combinedRow([g,'16','200',g==='GB200'?'-':'from $0.79',g==='GB200'?'Contact us':'$4.50'])).join('')+'</div>';
+const combinedOffers=parseNebius(combined);
+assert.equal(combinedOffers.find(o=>o.gpu==='H100'&&o.billing==='spot').perGpu,0.79);
+assert.equal(combinedOffers.find(o=>o.gpu==='H100'&&o.billing==='on-demand').perGpu,4.5);
+assert.equal(combinedOffers.find(o=>o.gpu==='GB200'&&o.billing==='spot').status,'not-offered');
+assert.equal(combinedOffers.find(o=>o.gpu==='GB200'&&o.billing==='on-demand').status,'contact-sales');
+assert.throws(()=>parseNebius(combined.replace('On-demand, GPU-hour','Reserved, GPU-hour')));
+assert.throws(()=>parseNebius(combined.replace('Preemptible, GPU-hour *','On-demand, GPU-hour')));
+assert.throws(()=>parseNebius(combined.replace('from $0.79','unknown')));
+console.log('Nebius combined billing columns verified.');
