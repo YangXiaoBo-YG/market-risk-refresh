@@ -6,6 +6,7 @@ on:
   push:
     branches: [main]
 permissions:
+  actions: read
   contents: write
   pages: write
   id-token: write
@@ -29,6 +30,7 @@ jobs:
           node scripts/check-gpu-quotes.mjs
           node scripts/check-nebius-spot.mjs
           node scripts/check-token-demand.mjs
+          node scripts/check-pages-artifact.mjs
       - name: Collect official disclosures and market data
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
@@ -49,8 +51,14 @@ jobs:
           npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
+        id: upload
         with:
           path: web/dist
+      - name: Wait for uploaded website to be visible to Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAGES_ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
+        run: node scripts/wait-pages-artifact.mjs
       - name: Deploy standalone public website
         id: deploy
         uses: actions/deploy-pages@v4

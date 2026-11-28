@@ -24,3 +24,13 @@ const directory='.runtime/archive-test-'+Date.now();const manifest=writeSpotArch
 writeSpotArchive({series:[{...series[0],points:[{timestamp:fiveYears[5].timestamp,value:99}]}]},directory);const stored=JSON.parse(fs.readFileSync(directory+'/2026-01.json','utf8'));assert.equal(stored.series[0].points[0].value,1);const latest=JSON.parse(fs.readFileSync(directory+'/2031-01.json','utf8'));assert.equal(latest.series[0].points[0].value,99);
 if(fs.existsSync('.runtime/public-token-day.json')&&fs.existsSync('.runtime/token-models.json')){const live=buildTokenDemand(JSON.parse(fs.readFileSync('.runtime/public-token-day.json','utf8')),JSON.parse(fs.readFileSync('.runtime/token-models.json','utf8')),at);assert(live.summary.coverage>0);console.log('Captured public daily sample:',JSON.stringify(live.summary));}
 console.log('Token demand and long-term retention checks passed: exact versions, input/output costing, free/batch separation, missing prices, coverage, failures, 5-year retention and durable month archives.');
+
+const rollingUsage={data:usage.data.map((r,i)=>({...r,date:i%2?'2026-10-19 23:00:00':'2026-10-20 04:00:00'}))};
+const rolling=buildTokenDemand(rollingUsage,models,at,'rolling-24h').summary;
+assert.equal(rolling.date,'2026-10-20');assert.equal(rolling.estimatedSpend,s.estimatedSpend);
+assert.equal(rolling.period,'rolling-24h');assert.equal(rolling.sourceTimestampMin,'2026-10-19T23:00:00Z');
+assert.throws(()=>buildTokenDemand({data:[{...usage.data[0],date:'2026-10-21 00:00:00'}]},models,at,'rolling-24h'));
+assert.throws(()=>buildTokenDemand({data:[rollingUsage.data[0],rollingUsage.data[0]]},models,at,'rolling-24h'));
+assert.equal(mergeDemandHistory([{...s,date:rolling.date}],[rolling]).length,2,'Different periods must never overwrite each other');
+assert.equal(mergeDemandHistory([rolling],[{...rolling,checkedAt:'2026-10-20T06:00:00Z'}]).length,1);
+console.log('Rolling 24-hour snapshots verified: cross-date rows, no double counting, separate legacy history.');
